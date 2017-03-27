@@ -8,8 +8,9 @@
 
 import UIKit
 import Alamofire
+import CoreLocation
 
-class WeatherVC: UIViewController, UITableViewDelegate, UITableViewDataSource {
+class WeatherVC: UIViewController, UITableViewDelegate, UITableViewDataSource, CLLocationManagerDelegate {
     
     @IBOutlet weak var dateLabel: UILabel!
     @IBOutlet weak var currentTempLabel: UILabel!
@@ -17,6 +18,10 @@ class WeatherVC: UIViewController, UITableViewDelegate, UITableViewDataSource {
     @IBOutlet weak var currentWeatherImage: UIImageView!
     @IBOutlet weak var currentWeatherTypeLabel: UILabel!
     @IBOutlet weak var tableView: UITableView!
+    
+    // Keep track of user and update GPS
+    let locationManager = CLLocationManager()
+    var currentLocation: CLLocation!
 
     var currentWeather: CurrentWeather!
     var forecast: Forecast!
@@ -25,17 +30,60 @@ class WeatherVC: UIViewController, UITableViewDelegate, UITableViewDataSource {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.startMonitoringSignificantLocationChanges()
+        locationManager.startUpdatingLocation()
+        
         tableView.delegate = self
         tableView.dataSource = self
         
         currentWeather = CurrentWeather()
-        currentWeather.downloadWeatherDetails {
-            //Setup UI to download data
-            self.downloadForecastData {
-                self.updateMainUI()
+        
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        locationAuthStatus()
+    }
+    
+    func locationAuthStatus()
+    {
+        if CLLocationManager.authorizationStatus() == .authorizedWhenInUse {
+
+            currentLocation = locationManager.location
+            Location.sharedInstance.latitude = currentLocation.coordinate.latitude
+            Location.sharedInstance.longitude = currentLocation.coordinate.longitude
+            currentWeather.downloadWeatherDetails {
+                //Setup UI to download data
+                self.downloadForecastData {
+                    self.updateMainUI()
+                }
+            }
+ 
+        } else {
+            locationManager.requestWhenInUseAuthorization()
+            locationAuthStatus()
+        }
+    }
+    
+    /*
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        print(locations)
+        print(locations.count)
+        if let currentLoc = locations[0] as? CLLocation {
+            Location.sharedInstance.latitude = currentLoc.coordinate.latitude
+            Location.sharedInstance.longitude = currentLoc.coordinate.longitude
+            currentWeather.downloadWeatherDetails {
+                //Setup UI to download data
+                self.downloadForecastData {
+                    self.updateMainUI()
+                }
             }
         }
     }
+ */
     
     func downloadForecastData(completed: @escaping DownloadComplete)
     {
